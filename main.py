@@ -12,6 +12,10 @@ st.set_page_config(page_title="Stock Data Visualization", layout="wide")
 # Initialize NewsAPI client
 newsapi = NewsApiClient(api_key=st.secrets["NEWSAPI_KEY"])
 
+# Initialize price alerts in session state
+if 'price_alerts' not in st.session_state:
+    st.session_state.price_alerts = {}
+
 # Function to fetch stock data
 def fetch_stock_data(symbol, period="1y"):
     try:
@@ -88,6 +92,22 @@ def analyze_sentiment(text):
     else:
         return 'Neutral'
 
+# Function to set price alert
+def set_price_alert(symbol, target_price, alert_type):
+    if symbol not in st.session_state.price_alerts:
+        st.session_state.price_alerts[symbol] = []
+    st.session_state.price_alerts[symbol].append({'target_price': target_price, 'type': alert_type})
+    st.success(f'Price alert set for {symbol}: {alert_type} at ${target_price}')
+
+# Function to check price alerts
+def check_price_alerts(symbol, current_price):
+    if symbol in st.session_state.price_alerts:
+        for alert in st.session_state.price_alerts[symbol]:
+            if alert['type'] == 'above' and current_price > alert['target_price']:
+                st.warning(f"Alert: {symbol} price is above ${alert['target_price']}!")
+            elif alert['type'] == 'below' and current_price < alert['target_price']:
+                st.warning(f"Alert: {symbol} price is below ${alert['target_price']}!")
+
 # Main app
 def main():
     st.title("Stock Data Visualization App")
@@ -115,9 +135,25 @@ def main():
             for i, (symbol, info) in enumerate(info_dict.items()):
                 with cols[i]:
                     st.markdown(f"**{info.get('longName', symbol)} ({symbol})**")
-                    st.metric("Current Price", f"${info.get('currentPrice', 'N/A')}")
+                    current_price = info.get('currentPrice', 'N/A')
+                    st.metric("Current Price", f"${current_price}")
                     st.metric("Market Cap", f"${info.get('marketCap', 0) / 1e9:.2f}B")
                     st.metric("P/E Ratio", f"{info.get('trailingPE', 'N/A')}")
+                    
+                    # Check and display price alerts
+                    if isinstance(current_price, (int, float)):
+                        check_price_alerts(symbol, current_price)
+
+            # Price Alert Section
+            st.subheader("Set Price Alerts")
+            alert_cols = st.columns(len(symbols))
+            for i, symbol in enumerate(symbols):
+                with alert_cols[i]:
+                    st.markdown(f"**{symbol} Alert**")
+                    target_price = st.number_input(f"Target Price for {symbol}", min_value=0.01, step=0.01, key=f"target_{symbol}")
+                    alert_type = st.selectbox(f"Alert Type for {symbol}", ["above", "below"], key=f"type_{symbol}")
+                    if st.button(f"Set Alert for {symbol}"):
+                        set_price_alert(symbol, target_price, alert_type)
 
             # Display comparative price chart with moving averages
             st.subheader("Price History Comparison with Moving Averages")
