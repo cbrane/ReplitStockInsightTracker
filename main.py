@@ -18,60 +18,72 @@ def fetch_stock_data(symbol, period="1y"):
         st.error(f"Error fetching data for {symbol}: {str(e)}")
         return None, None
 
-# Function to create price chart
-def create_price_chart(data):
+# Function to create price chart for multiple stocks
+def create_price_chart(data_dict):
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price'))
-    fig.update_layout(title='Stock Price History', xaxis_title='Date', yaxis_title='Price')
+    for symbol, data in data_dict.items():
+        fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name=f'{symbol} Close Price'))
+    fig.update_layout(title='Stock Price History Comparison', xaxis_title='Date', yaxis_title='Price')
     return fig
 
 # Main app
 def main():
     st.title("Stock Data Visualization App")
 
-    # User input for stock symbol
-    symbol = st.text_input("Enter Stock Symbol (e.g., AAPL for Apple Inc.)", "AAPL").upper()
+    # User input for multiple stock symbols
+    symbols_input = st.text_input("Enter Stock Symbols (comma-separated, e.g., AAPL,GOOGL,MSFT)", "AAPL,GOOGL,MSFT")
+    symbols = [sym.strip().upper() for sym in symbols_input.split(',')]
 
-    if symbol:
-        # Fetch stock data
-        hist_data, stock_info = fetch_stock_data(symbol)
+    if symbols:
+        # Fetch stock data for all symbols
+        data_dict = {}
+        info_dict = {}
+        for symbol in symbols:
+            hist_data, stock_info = fetch_stock_data(symbol)
+            if hist_data is not None and stock_info is not None:
+                data_dict[symbol] = hist_data
+                info_dict[symbol] = stock_info
 
-        if hist_data is not None and stock_info is not None:
-            # Display basic stock information
-            st.subheader(f"{stock_info.get('longName', symbol)} ({symbol})")
-            
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Current Price", f"${stock_info.get('currentPrice', 'N/A'):.2f}")
-            col2.metric("Market Cap", f"${stock_info.get('marketCap', 0) / 1e9:.2f}B")
-            col3.metric("P/E Ratio", f"{stock_info.get('trailingPE', 'N/A'):.2f}")
+        if data_dict:
+            # Display basic stock information for all symbols
+            st.subheader("Stock Information")
+            cols = st.columns(len(symbols))
+            for i, (symbol, info) in enumerate(info_dict.items()):
+                with cols[i]:
+                    st.markdown(f"**{info.get('longName', symbol)} ({symbol})**")
+                    st.metric("Current Price", f"${info.get('currentPrice', 'N/A')}")
+                    st.metric("Market Cap", f"${info.get('marketCap', 0) / 1e9:.2f}B")
+                    st.metric("P/E Ratio", f"{info.get('trailingPE', 'N/A')}")
 
-            # Display price chart
-            st.subheader("Price History")
-            price_chart = create_price_chart(hist_data)
+            # Display comparative price chart
+            st.subheader("Price History Comparison")
+            price_chart = create_price_chart(data_dict)
             st.plotly_chart(price_chart, use_container_width=True)
 
-            # Display financial data table
+            # Display financial data tables
             st.subheader("Financial Data")
-            fin_data = pd.DataFrame({
-                'Date': hist_data.index,
-                'Open': hist_data['Open'],
-                'High': hist_data['High'],
-                'Low': hist_data['Low'],
-                'Close': hist_data['Close'],
-                'Volume': hist_data['Volume']
-            })
-            st.dataframe(fin_data)
-
-            # CSV download button
-            csv = fin_data.to_csv(index=False)
-            st.download_button(
-                label="Download data as CSV",
-                data=csv,
-                file_name=f"{symbol}_stock_data.csv",
-                mime="text/csv",
-            )
+            for symbol, data in data_dict.items():
+                with st.expander(f"{symbol} Financial Data"):
+                    fin_data = pd.DataFrame({
+                        'Date': data.index,
+                        'Open': data['Open'],
+                        'High': data['High'],
+                        'Low': data['Low'],
+                        'Close': data['Close'],
+                        'Volume': data['Volume']
+                    })
+                    st.dataframe(fin_data)
+                    
+                    # CSV download button for each stock
+                    csv = fin_data.to_csv(index=False)
+                    st.download_button(
+                        label=f"Download {symbol} data as CSV",
+                        data=csv,
+                        file_name=f"{symbol}_stock_data.csv",
+                        mime="text/csv",
+                    )
         else:
-            st.warning("Unable to fetch stock data. Please check the symbol and try again.")
+            st.warning("Unable to fetch stock data. Please check the symbols and try again.")
 
 if __name__ == "__main__":
     main()
