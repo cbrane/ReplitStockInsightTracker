@@ -18,12 +18,42 @@ def fetch_stock_data(symbol, period="1y"):
         st.error(f"Error fetching data for {symbol}: {str(e)}")
         return None, None
 
-# Function to create price chart for multiple stocks
+# Function to calculate moving averages
+def calculate_moving_averages(data, short_window=20, long_window=50):
+    data['SMA20'] = data['Close'].rolling(window=short_window).mean()
+    data['SMA50'] = data['Close'].rolling(window=long_window).mean()
+    return data
+
+# Function to calculate RSI
+def calculate_rsi(data, window=14):
+    delta = data['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    data['RSI'] = 100 - (100 / (1 + rs))
+    return data
+
+# Function to create price chart for multiple stocks with indicators
 def create_price_chart(data_dict):
     fig = go.Figure()
     for symbol, data in data_dict.items():
         fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name=f'{symbol} Close Price'))
-    fig.update_layout(title='Stock Price History Comparison', xaxis_title='Date', yaxis_title='Price')
+        fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], mode='lines', name=f'{symbol} SMA20', line=dict(dash='dash')))
+        fig.add_trace(go.Scatter(x=data.index, y=data['SMA50'], mode='lines', name=f'{symbol} SMA50', line=dict(dash='dot')))
+    
+    fig.update_layout(title='Stock Price History Comparison with Moving Averages', xaxis_title='Date', yaxis_title='Price')
+    return fig
+
+# Function to create RSI chart
+def create_rsi_chart(data_dict):
+    fig = go.Figure()
+    for symbol, data in data_dict.items():
+        fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], mode='lines', name=f'{symbol} RSI'))
+    
+    fig.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="Overbought (70)")
+    fig.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="Oversold (30)")
+    
+    fig.update_layout(title='Relative Strength Index (RSI)', xaxis_title='Date', yaxis_title='RSI')
     return fig
 
 # Main app
@@ -41,6 +71,8 @@ def main():
         for symbol in symbols:
             hist_data, stock_info = fetch_stock_data(symbol)
             if hist_data is not None and stock_info is not None:
+                hist_data = calculate_moving_averages(hist_data)
+                hist_data = calculate_rsi(hist_data)
                 data_dict[symbol] = hist_data
                 info_dict[symbol] = stock_info
 
@@ -55,10 +87,15 @@ def main():
                     st.metric("Market Cap", f"${info.get('marketCap', 0) / 1e9:.2f}B")
                     st.metric("P/E Ratio", f"{info.get('trailingPE', 'N/A')}")
 
-            # Display comparative price chart
-            st.subheader("Price History Comparison")
+            # Display comparative price chart with moving averages
+            st.subheader("Price History Comparison with Moving Averages")
             price_chart = create_price_chart(data_dict)
             st.plotly_chart(price_chart, use_container_width=True)
+
+            # Display RSI chart
+            st.subheader("Relative Strength Index (RSI)")
+            rsi_chart = create_rsi_chart(data_dict)
+            st.plotly_chart(rsi_chart, use_container_width=True)
 
             # Display financial data tables
             st.subheader("Financial Data")
@@ -70,7 +107,10 @@ def main():
                         'High': data['High'],
                         'Low': data['Low'],
                         'Close': data['Close'],
-                        'Volume': data['Volume']
+                        'Volume': data['Volume'],
+                        'SMA20': data['SMA20'],
+                        'SMA50': data['SMA50'],
+                        'RSI': data['RSI']
                     })
                     st.dataframe(fin_data)
                     
