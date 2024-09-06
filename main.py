@@ -3,9 +3,14 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from newsapi import NewsApiClient
+from textblob import TextBlob
 
 # Set page configuration
 st.set_page_config(page_title="Stock Data Visualization", layout="wide")
+
+# Initialize NewsAPI client
+newsapi = NewsApiClient(api_key=st.secrets["NEWSAPI_KEY"])
 
 # Function to fetch stock data
 def fetch_stock_data(symbol, period="1y"):
@@ -56,6 +61,33 @@ def create_rsi_chart(data_dict):
     fig.update_layout(title='Relative Strength Index (RSI)', xaxis_title='Date', yaxis_title='RSI')
     return fig
 
+# Function to fetch news articles
+def fetch_news(symbol, days=7):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    articles = newsapi.get_everything(
+        q=symbol,
+        from_param=start_date.strftime('%Y-%m-%d'),
+        to=end_date.strftime('%Y-%m-%d'),
+        language='en',
+        sort_by='relevancy',
+        page_size=10
+    )
+    
+    return articles['articles']
+
+# Function to perform sentiment analysis
+def analyze_sentiment(text):
+    blob = TextBlob(text)
+    sentiment = blob.sentiment.polarity
+    if sentiment > 0.05:
+        return 'Positive'
+    elif sentiment < -0.05:
+        return 'Negative'
+    else:
+        return 'Neutral'
+
 # Main app
 def main():
     st.title("Stock Data Visualization App")
@@ -96,6 +128,26 @@ def main():
             st.subheader("Relative Strength Index (RSI)")
             rsi_chart = create_rsi_chart(data_dict)
             st.plotly_chart(rsi_chart, use_container_width=True)
+
+            # Display news sentiment analysis
+            st.subheader("News Sentiment Analysis")
+            for symbol in symbols:
+                with st.expander(f"{symbol} News Sentiment"):
+                    news_articles = fetch_news(symbol)
+                    if news_articles:
+                        for article in news_articles:
+                            title = article['title']
+                            description = article['description']
+                            url = article['url']
+                            sentiment = analyze_sentiment(title + " " + description)
+                            
+                            st.markdown(f"**{title}**")
+                            st.write(description)
+                            st.write(f"Sentiment: {sentiment}")
+                            st.write(f"[Read more]({url})")
+                            st.write("---")
+                    else:
+                        st.write("No recent news articles found.")
 
             # Display financial data tables
             st.subheader("Financial Data")
