@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-from newsapi import NewsApiClient
+from newsapi.newsapi_client import NewsApiClient
 from textblob import TextBlob
 
 # Set page configuration
@@ -82,7 +82,16 @@ def fetch_news(symbol, days=7):
     return articles['articles']
 
 # Function to perform sentiment analysis
-def analyze_sentiment(text):
+def analyze_sentiment(title, description):
+    text = ""
+    if title:
+        text += title
+    if description:
+        text += " " + description if text else description
+    
+    if not text:
+        return 'Neutral'  # Return neutral if both title and description are None
+    
     blob = TextBlob(text)
     sentiment = blob.sentiment.polarity
     if sentiment > 0.05:
@@ -172,10 +181,10 @@ def main():
                     news_articles = fetch_news(symbol)
                     if news_articles:
                         for article in news_articles:
-                            title = article['title']
-                            description = article['description']
+                            title = article.get('title', '')
+                            description = article.get('description', '')
                             url = article['url']
-                            sentiment = analyze_sentiment(title + " " + description)
+                            sentiment = analyze_sentiment(title, description)
                             
                             st.markdown(f"**{title}**")
                             st.write(description)

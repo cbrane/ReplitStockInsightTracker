@@ -678,6 +678,20 @@ polars = ["polars (>=0.20.3)"]
 pyarrow = ["pyarrow (>=11.0.0)"]
 
 [[package]]
+name = "newsapi"
+version = "0.1.1"
+description = "A python wrapper for News API (newsapi.org)"
+optional = false
+python-versions = "*"
+files = [
+    {file = "newsapi-0.1.1-py2.py3-none-any.whl", hash = "sha256:baef702f6e29fc2736932858528d94f18b2baaef9d330018ba78369e005e1df4"},
+    {file = "newsapi-0.1.1.tar.gz", hash = "sha256:ba6eae31d66f8a804134779c4f4a984fea90ef77be20dba40c2808c75042a69a"},
+]
+
+[package.dependencies]
+requests = "*"
+
+[[package]]
 name = "newsapi-python"
 version = "0.2.7"
 description = "An unofficial Python client for the News API"
@@ -1663,4 +1677,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "4497492b38450d1be62500637435af434f98ee688f22e2eea1025e487d6d2f45"
+content-hash = "ff834ca048db441b3e8fe2b658040cf3a35a3f1adfc3df9cba0dae7641e253b7"
